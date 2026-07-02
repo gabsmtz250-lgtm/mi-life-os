@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import json
 from datetime import datetime, timedelta
 
 # Librerías oficiales de Google
@@ -18,7 +19,7 @@ SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets'
 ]
 
-# RUTAS ABSOLUTAS DE SEGURIDAD (Para cuando corras en local)
+# RUTAS LOCALES (Solo se usan si corres la app en tu lap)
 CREDENTIALS_FILE = r"C:\Users\gabyc\OneDrive\Escritorio\Mi App\credentials.json.json"
 TOKEN_FILE = r"C:\Users\gabyc\OneDrive\Escritorio\Mi App\token.json"
 
@@ -35,8 +36,18 @@ DICCIONARIO_CALENDARIOS = {
     "💻 Tecnolochicas": "c2dc5b93f56610e1e28b36acd30f8630ff24bf37e72010ff219d7398967e7a68@group.calendar.google.com"
 }
 
-# Función única de conexión con Google (Trae Calendar y Sheets)
+# Función híbrida de conexión (Local vs Nube Segura)
 def obtener_credenciales_google():
+    # Intento 1: Buscar en la caja fuerte de Streamlit Cloud (Celular)
+    if "google_credentials" in st.secrets:
+        try:
+            info_token = json.loads(st.secrets["google_credentials"]["token_json"])
+            return Credentials.from_authorized_user_info(info_token, SCOPES)
+        except Exception as e:
+            st.error(f"Error con las credenciales de la nube: {e}")
+            return None
+
+    # Intento 2: Si no está en la nube, corre en tu Laptop usando tus archivos
     creds = None
     if os.path.exists(TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
@@ -95,7 +106,7 @@ with tab1:
     with col3:
         botón_buscar = st.button("🔍 Buscar", use_container_width=True)
 
-    # LÓGICA GUARDAR IDEA (A GOOGLE SHEETS)
+    # LÓGICA GUARDAR IDEA
     if st.session_state.mostrando_pilares:
         st.subheader("¿Dónde lo guardamos?")
         c1, c2, c3, c4, c5 = st.columns(5)
@@ -164,14 +175,13 @@ with tab1:
                         st.rerun()
                 except Exception as e: st.error(f"Error: {e}")
 
-    # --- OMNIBUSCADOR ULTRA INTELIGENTE (SHEETS + GOOGLE CALENDAR) ---
+    # OMNIBUSCADOR
     if botón_buscar:
         if todo_texto.strip() == "": st.warning("¡Escribe una palabra clave primero!")
         else:
             encontró_algo = False
             st.markdown("---")
             
-            # PARTE A: BUSCAR EN TU BAÚL DE IDEAS (SHEETS)
             with st.spinner("Escarbando en tus ideas... 🗄️"):
                 try:
                     creds = obtener_credenciales_google()
@@ -193,7 +203,6 @@ with tab1:
             
             st.write("") 
             
-            # PARTE B: BUSCAR EN TUS 6 CALENDARIOS DE GOOGLE
             with st.spinner("Rastreando tus calendarios de Google... 📅"):
                 try:
                     creds = obtener_credenciales_google()
@@ -242,7 +251,7 @@ with tab1:
             if not encontró_algo:
                 st.info(f"❌ No encontramos absolutamente nada con la palabra '{todo_texto}' ni en tus Listas ni en tus Calendarios.")
 
-# --- PESTAÑA 2: FINANZAS (CONEXIÓN A SHEETS) ---
+# --- PESTAÑA 2: FINANZAS ---
 with tab2:
     st.title("Control de Finanzas 💸")
     try:
@@ -306,7 +315,7 @@ with tab2:
                         
     except Exception as e: st.error(f"Error en Finanzas: {e}")
 
-# --- PESTAÑA 3: MIS LISTAS (CONEXIÓN A SHEETS + BOTÓN DONE) ---
+# --- PESTAÑA 3: MIS LISTAS ---
 with tab3:
     st.title("Tu Baúl de Ideas 🗄️")
     try:
